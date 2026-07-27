@@ -66,3 +66,21 @@ E2E TEST HARDENING
 - Added inline, accessible validation when the learner checks without selecting.
 - Feedback and AI status use live regions for clearer user response.
 - Tested desktop and 390px mobile layouts using Chromium browser automation.
+
+CONTENT AUDIT UPDATE
+--------------------
+This package revises 23 Kubernetes questions after an official-documentation
+review. Question IDs, answer indices, option counts, question types, course
+counts, and progress compatibility are preserved.
+
+Updated IDs:
+299, 301, 302, 304, 311, 325, 330, 335, 343, 358, 360, 363,
+364, 365, 389, 404, 406, 409, 410, 412, 432, 438, 441.
+
+Main improvements:
+- Every multiple-select prompt now states Select TWO/THREE explicitly.
+- Questions no longer ask for one object while grading multiple true statements.
+- Pod Security Admission uses complete namespace label keys.
+- maxSurge wording distinguishes rollout limits from already-terminating Pods.
+- Native sidecar references the official Sidecar Containers documentation.
+- RBAC get/list wording explicitly accounts for resourceNames restrictions.
