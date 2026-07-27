@@ -47,3 +47,22 @@ PROGRESS
 Existing questions keep IDs 1-297.
 New Kubernetes questions use IDs 298-447.
 Existing browser progress remains compatible.
+
+
+RUNTIME FIX
+-----------
+This edition fixes a page-load error where the inline JavaScript executed
+before the dynamic Settings/API-key elements existed in the DOM.
+
+Additional safeguards:
+- Invalid or legacy browser progress is normalized instead of stopping render.
+- Corrupt localStorage data is ignored and removed.
+- Existing valid progress remains compatible.
+
+
+E2E TEST HARDENING
+------------------
+- Prevented horizontal overflow caused by the closed Settings drawer on mobile.
+- Added inline, accessible validation when the learner checks without selecting.
+- Feedback and AI status use live regions for clearer user response.
+- Tested desktop and 390px mobile layouts using Chromium browser automation.
