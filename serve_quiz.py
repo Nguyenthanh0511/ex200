@@ -3,7 +3,8 @@
 Local server for the RH124, RH134, and Kubernetes quiz with DeepSeek Ask AI.
 
 Security:
-- The DeepSeek API key is read from DEEPSEEK_API_KEY.
+- The preferred DeepSeek API key is entered dynamically in Website Settings.
+- DEEPSEEK_API_KEY is supported only as an optional fallback.
 - The key is never embedded in the HTML file.
 - The server binds to 127.0.0.1 by default.
 """
@@ -23,7 +24,7 @@ HOST = os.environ.get("QUIZ_HOST", "127.0.0.1")
 PORT = int(os.environ.get("QUIZ_PORT", "8765"))
 MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
 API_URL = "https://api.deepseek.com/chat/completions"
-QUIZ_FILE = "RH124_RH134_Kubernetes_297_Interactive_Quiz_With_DeepSeek_AI.html"
+QUIZ_FILE = "index.html"
 
 SYSTEM_PROMPT = """You are a precise technical tutor for:
 - RH124 and RH134 on Red Hat Enterprise Linux 10.
@@ -31,7 +32,7 @@ SYSTEM_PROMPT = """You are a precise technical tutor for:
 
 RESPONSE STYLE
 - Answer briefly, clearly, and directly.
-- Default to about 60-140 words unless the learner requests more detail.
+- Follow the requested answer style: concise about 40-100 words, standard about 80-180 words, or detailed when explicitly selected.
 - Do not repeat the question or add an introduction.
 - Prefer: Answer, Why, and Source.
 - Include a command, YAML fragment, or verification step only when it is useful.
@@ -88,12 +89,19 @@ class QuizHandler(SimpleHTTPRequestHandler):
             self._json(404, {"error": "Not found"})
             return
 
-        api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+        # Prefer the per-request key entered dynamically in the website.
+        # Environment variable remains an optional fallback for compatibility.
+        api_key = (self.headers.get("X-DeepSeek-API-Key") or "").strip()
+        if not api_key:
+            api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
         if not api_key:
             self._json(
-                500,
-                {"error": "DEEPSEEK_API_KEY is not set. Stop the server, set the environment variable, and start it again."},
+                401,
+                {"error": "No DeepSeek API key was provided. Enter it in Website Settings."},
             )
+            return
+        if len(api_key) > 512 or any(ch in api_key for ch in "\r\n"):
+            self._json(400, {"error": "Invalid API key format."})
             return
 
         try:
@@ -106,6 +114,9 @@ class QuizHandler(SimpleHTTPRequestHandler):
             return
 
         language = incoming.get("language", "English")
+        answer_style = incoming.get("answerStyle", "concise")
+        if answer_style not in {"concise", "standard", "detailed"}:
+            answer_style = "concise"
         context = incoming.get("context", {})
         history = incoming.get("history", [])
         if not isinstance(context, dict) or not isinstance(history, list):
@@ -122,7 +133,8 @@ class QuizHandler(SimpleHTTPRequestHandler):
                 clean_history.append({"role": role, "content": content[:12000]})
 
         context_message = (
-            f"Answer language requested: {language}\n\n"
+            f"Answer language requested: {language}\n"
+            f"Answer style requested: {answer_style}\n\n"
             "CURRENT QUIZ CONTEXT:\n"
             + json.dumps(context, ensure_ascii=False, indent=2)
         )
@@ -139,7 +151,7 @@ class QuizHandler(SimpleHTTPRequestHandler):
                 "messages": messages,
                 "stream": False,
                 "temperature": 0.1,
-                "max_tokens": 750,
+                "max_tokens": 1200,
             },
             ensure_ascii=False,
         ).encode("utf-8")
@@ -186,7 +198,7 @@ def main() -> None:
         sys.exit(1)
 
     if not os.environ.get("DEEPSEEK_API_KEY"):
-        print("WARNING: DEEPSEEK_API_KEY is not set. The quiz will open, but Ask AI will return an error.")
+        print("INFO: No static API key configured. Enter the key dynamically in Website Settings.")
 
     url = f"http://{HOST}:{PORT}/{QUIZ_FILE}"
     httpd = ThreadingHTTPServer((HOST, PORT), QuizHandler)
